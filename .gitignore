@@ -1,0 +1,13 @@
+dist
+data
+.vscode
+.bsp
+temp
+.DS_Store
+.idea
+/null
+.bloop
+.metals
+project/metals.sbt
+project/project
+target/
