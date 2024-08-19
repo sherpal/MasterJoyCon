@@ -103,7 +103,7 @@ final case class GameRunningModel(
     gameTime: Seconds
 ) extends Model {
 
-  val level = 5
+  val level = 50
 
   val spawnBulletEvery: Seconds = Seconds(3.0 / level)
 
@@ -138,7 +138,9 @@ final case class GameRunningModel(
   private val corners = Vector(bottomLeft, bottomRight, topRight, topLeft, bottomLeft)
 
   private def randomBullet(dice: Dice): Bullet = {
-    val side             = dice.roll(4)
+    val side =
+      (dice.roll(4 * 3) - 1) / 3 + 1 // https://github.com/PurpleKingdomGames/indigo/issues/750
+
     val refCorner        = corners(side - 1)
     val nextCorner       = corners(side)
     val dir              = nextCorner - refCorner
@@ -197,12 +199,20 @@ final case class GameRunningModel(
       val maybePlayerDirection =
         if playerX == 0 && playerY == 0 then None else Some(Math.atan2(playerY, playerX))
 
+      val gamepadRightStick =
+        Complex(context.gamepad.analog.right.x, -context.gamepad.analog.right.y)
+
+      val maybeGamepadPlayerDirection =
+        Option.when(gamepadRightStick.modulus > 0.5)(gamepadRightStick.arg)
+
       val modelWithNewBullet =
         if gameTime - lastAddedBullet > spawnBulletEvery then withRandomBullet(context.dice)
         else this
 
       val modelWithNewBulletAndUpdatedPlayer =
-        modelWithNewBullet.update(context.delta, maybePlayerDirection).withTooFarBulletsRemoved
+        modelWithNewBullet
+          .update(context.delta, maybePlayerDirection.orElse(maybeGamepadPlayerDirection))
+          .withTooFarBulletsRemoved
 
       if modelWithNewBulletAndUpdatedPlayer.bullets.exists(_.hitPlayer(gameTime, player)) then
         Outcome(EndOfGameModel(bounds, gameTime))
